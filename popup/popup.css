@@ -1,0 +1,34 @@
+/* 在 popup.css 中添加调试样式 */
+.debug-section {
+  background-color: rgba(0, 0, 0, 0.2);
+  padding: 10px;
+  border-radius: 4px;
+  margin-bottom: 15px;
+}
+
+.debug-section h3 {
+  margin: 0 0 8px 0;
+  font-size: 14px;
+  color: #ffaa00;
+}
+
+.debug-info {
+  font-size: 12px;
+  margin-bottom: 8px;
+  color: #aaa;
+}
+
+.small-btn {
+  font-size: 11px;
+  padding: 5px 10px;
+  background-color: #666;
+}
+
+.library-list {
+  max-height: 250px;
+}
+
+#libraryCount {
+  color: #4CAF50;
+  font-weight: bold;
+}
