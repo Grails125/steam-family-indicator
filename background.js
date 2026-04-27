@@ -1,6 +1,34 @@
-// ============================================================
-//  所有 Steam API 请求都在 background 中执行
-// ============================================================
+async function autoFetchToken() {
+  try {
+    // 增加时间戳防止缓存
+    const url = "https://store.steampowered.com/pointssummary/ajaxgetasyncconfig?_t=" + Date.now();
+    const resp = await fetch(url, { credentials: "include" });
+    const data = await resp.json();
+    
+    if (data && data.webapi_token) {
+      console.log("[BG] 自动获取 Token 成功:", data.webapi_token.substring(0, 5) + "...");
+      await chrome.storage.local.set({ steamApiKey: data.webapi_token });
+      return data.webapi_token;
+    } else {
+      console.warn("[BG] 接口未返回 webapi_token，请确认是否已登录 Steam 商店");
+    }
+  } catch (e) {
+    console.error("[BG] 自动获取 Token 异常:", e);
+  }
+  return null;
+}
+
+// 监听标签页更新，尝试静默获取 Token
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (changeInfo.status === "complete" && tab.url && tab.url.includes("store.steampowered.com")) {
+    chrome.storage.local.get(["steamApiKey"], async (res) => {
+      // 尝试静默获取一次 Token
+      if (!res.steamApiKey) {
+        await autoFetchToken();
+      }
+    });
+  }
+});
 
 async function steamFetch(url) {
   console.log("[BG] 请求:", url);
@@ -160,6 +188,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         });
       }
       sendResponse(result);
+    });
+    return true;
+  }
+
+  if (request.action === "autoToken") {
+    autoFetchToken().then((token) => {
+      sendResponse({ token });
     });
     return true;
   }

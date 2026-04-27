@@ -103,6 +103,71 @@ function getAppId(row) {
   return null;
 }
 
+// 尝试在页面上下文静默获取 Token
+async function tryAutoFetchToken() {
+  console.log("🔍 正在尝试自动获取 Steam Token...");
+  
+  // 1. 尝试从页面脚本中提取 (最快)
+  for (const s of document.querySelectorAll("script")) {
+    const m = (s.textContent || "").match(/webapi_token\s*[:=]\s*["'](v0[^"']+)["']/);
+    if (m) {
+      chrome.storage.local.set({ steamApiKey: m[1] });
+      console.log("✅ 从页面脚本中同步了 Token");
+      triggerAutoSync(m[1]);
+      return;
+    }
+  }
+
+  // 2. 尝试从接口获取
+  try {
+    const resp = await fetch("/pointssummary/ajaxgetasyncconfig");
+    if (!resp.ok) throw new Error("HTTP 状态码: " + resp.status);
+    const data = await resp.json();
+    const token = data.webapi_token || (data.data && data.data.webapi_token);
+    
+    if (token) {
+      chrome.storage.local.set({ steamApiKey: token });
+      console.log("✅ 从接口同步了 Token");
+      // 成功获取 Token 后，尝试触发自动同步
+      triggerAutoSync(token);
+    } else {
+      console.warn("⚠️ 未能从页面或接口获取到 Token");
+    }
+  } catch (e) {
+    console.error("❌ 自动获取 Token 异常:", e.message);
+  }
+}
+
+// 自动同步家庭库数据
+function triggerAutoSync(token) {
+  chrome.storage.local.get(["detectedSteamId", "familyApps"], (res) => {
+    // 如果已有数据且在 1 小时内获取过，则不重复同步（防止频繁请求）
+    const isFresh = res.familyApps && (Date.now() - res.familyApps.fetchTime < 3600000);
+    if (isFresh) return;
+
+    const steamId = res.detectedSteamId || detectSteamId()?.id;
+    if (token && steamId) {
+      console.log("🚀 正在自动同步家庭库...");
+      chrome.runtime.sendMessage({
+        action: "fetchFamilyLibrary",
+        apiKey: token,
+        steamId: steamId
+      }, (resp) => {
+        if (chrome.runtime.lastError) {
+          console.error("❌ 自动同步消息失败:", chrome.runtime.lastError.message);
+          return;
+        }
+        if (resp && resp.success) {
+          console.log("✅ 家庭库自动同步完成");
+        }
+      });
+    }
+  });
+}
+
+// 页面加载后执行
+tryAutoFetchToken();
+
 // ============ 标记页面 ============
 
 function markPage() {

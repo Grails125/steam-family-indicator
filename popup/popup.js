@@ -12,6 +12,23 @@ async function querySteamId() {
   $("steamId").textContent = "检测中...";
   $("steamId").style.color = "#ffcc80";
 
+  // 初始化时加载已保存的 Token
+  chrome.storage.local.get(["steamApiKey"], (res) => {
+    if (res.steamApiKey) {
+      $("apiKey").value = res.steamApiKey;
+    } else {
+      // 如果缺失，尝试自动获取
+      chrome.runtime.sendMessage({ action: "autoToken" }, (resp) => {
+        if (resp && resp.token) {
+          $("apiKey").value = resp.token;
+          showStatus("已为您静默获取 Access Token", "success");
+        } else {
+          showStatus("无法自动获取 Token，请手动输入或重新登录 Steam", "error");
+        }
+      });
+    }
+  });
+
   try {
     const [tab] = await chrome.tabs.query({
       active: true,
